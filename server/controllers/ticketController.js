@@ -94,27 +94,65 @@ class TicketController {
     try {
       const { id } = req.params;
 
-      const ticketQuery =
-        "SELECT * FROM ott_system_tickets_activity WHERE ticket_id = $1";
-      const ticketResult = await poolNisa.query(ticketQuery, [id]);
+      // Query to get both ticket and comments in one database call
+      const query = `
+        SELECT 
+          t.*,
+          c.comment_id,
+          c.user_name AS comment_user_name,
+          c.user_email AS comment_user_email,
+          c.comment,
+          c.created_at AS comment_created_at
+        FROM 
+          ott_system_tickets_activity t
+        LEFT JOIN 
+          ott_system_ticket_comments_activity c ON t.ticket_id = c.ticket_id
+        WHERE 
+          t.ticket_id = $1
+        ORDER BY 
+          c.created_at DESC
+      `;
 
-      if (ticketResult.rows.length === 0) {
+      const result = await poolNisa.query(query, [id]);
+
+      if (result.rows.length === 0) {
         return res.status(404).json({
           status: "error",
           message: "Tiket tidak ditemukan",
         });
       }
 
-      // Get comments for this ticket
-      const commentsQuery =
-        "SELECT * FROM ott_system_ticket_comments_activity WHERE ticket_id = $1 ORDER BY created_at DESC";
-      const commentsResult = await poolNisa.query(commentsQuery, [id]);
+      // Format the response data
+      const ticket = {
+        ticket_id: result.rows[0].ticket_id,
+        category: result.rows[0].category,
+        start_date: result.rows[0].start_date,
+        end_date: result.rows[0].end_date,
+        user_name: result.rows[0].user_name,
+        user_email: result.rows[0].user_email,
+        activity: result.rows[0].activity,
+        detail_activity: result.rows[0].detail_activity,
+        type: result.rows[0].type,
+        status: result.rows[0].status,
+      };
+
+      // Prepare comments array
+      const comments = result.rows[0].comment_id
+        ? result.rows.map((row) => ({
+            comment_id: row.comment_id,
+            ticket_id: row.ticket_id,
+            user_name: row.comment_user_name,
+            user_email: row.comment_user_email,
+            comment: row.comment,
+            created_at: row.comment_created_at,
+          }))
+        : [];
 
       return res.status(200).json({
         status: "success",
         data: {
-          ticket: ticketResult.rows[0],
-          comments: commentsResult.rows,
+          ticket,
+          comments,
         },
       });
     } catch (error) {
