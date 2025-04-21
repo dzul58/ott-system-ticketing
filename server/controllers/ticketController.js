@@ -1,4 +1,4 @@
-const pool = require("../config/config");
+const poolNisa = require("../config/config");
 
 class TicketController {
   // Get all tickets with search and pagination
@@ -56,7 +56,7 @@ class TicketController {
 
       // Count total tickets for pagination
       const countQuery = `SELECT COUNT(*) FROM ott_system_tickets_activity ${whereClause}`;
-      const countResult = await pool.query(countQuery, params);
+      const countResult = await poolNisa.query(countQuery, params);
       const totalTickets = parseInt(countResult.rows[0].count);
 
       // Query tickets with pagination
@@ -68,7 +68,7 @@ class TicketController {
       `;
 
       const queryParams = [...params, limit, offset];
-      const result = await pool.query(query, queryParams);
+      const result = await poolNisa.query(query, queryParams);
 
       return res.status(200).json({
         status: "success",
@@ -96,7 +96,7 @@ class TicketController {
 
       const ticketQuery =
         "SELECT * FROM ott_system_tickets_activity WHERE ticket_id = $1";
-      const ticketResult = await pool.query(ticketQuery, [id]);
+      const ticketResult = await poolNisa.query(ticketQuery, [id]);
 
       if (ticketResult.rows.length === 0) {
         return res.status(404).json({
@@ -108,7 +108,7 @@ class TicketController {
       // Get comments for this ticket
       const commentsQuery =
         "SELECT * FROM ott_system_ticket_comments_activity WHERE ticket_id = $1 ORDER BY created_at DESC";
-      const commentsResult = await pool.query(commentsQuery, [id]);
+      const commentsResult = await poolNisa.query(commentsQuery, [id]);
 
       return res.status(200).json({
         status: "success",
@@ -129,9 +129,9 @@ class TicketController {
   // Create new ticket
   static async createTicket(req, res) {
     try {
+      const { name, email } = req.userAccount;
       const {
         category,
-        start_date,
         end_date,
         user_name,
         user_email,
@@ -141,34 +141,25 @@ class TicketController {
         status,
       } = req.body;
 
-      // Validate required fields
-      if (!category || !user_name || !activity || !type || !status) {
-        return res.status(400).json({
-          status: "error",
-          message: "Mohon isi semua field yang diperlukan",
-        });
-      }
-
       const query = `
         INSERT INTO ott_system_tickets_activity 
-        (category, start_date, end_date, user_name, user_email, activity, detail_activity, type, status) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+        (category, end_date, user_name, user_email, activity, detail_activity, type, status) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
         RETURNING *
       `;
 
       const values = [
         category,
-        start_date || null,
-        end_date || null,
-        user_name,
-        user_email || null,
+        end_date,
+        name,
+        email,
         activity,
-        detail_activity || null,
+        detail_activity,
         type,
         status,
       ];
 
-      const result = await pool.query(query, values);
+      const result = await poolNisa.query(query, values);
 
       return res.status(201).json({
         status: "success",
@@ -203,13 +194,23 @@ class TicketController {
       // Check if ticket exists
       const checkQuery =
         "SELECT * FROM ott_system_tickets_activity WHERE ticket_id = $1";
-      const checkResult = await pool.query(checkQuery, [id]);
+      const checkResult = await poolNisa.query(checkQuery, [id]);
 
       if (checkResult.rows.length === 0) {
         return res.status(404).json({
           status: "error",
           message: "Tiket tidak ditemukan",
         });
+      }
+
+      let finalEndDate = end_date;
+
+      // If status is being updated to "Closed", set end_date to current time in Jakarta timezone
+      if (status === "Closed") {
+        const jakartaTimeQuery =
+          "SELECT NOW() AT TIME ZONE 'Asia/Jakarta' as current_time";
+        const timeResult = await poolNisa.query(jakartaTimeQuery);
+        finalEndDate = timeResult.rows[0].current_time;
       }
 
       const query = `
@@ -231,7 +232,7 @@ class TicketController {
       const values = [
         category,
         start_date,
-        end_date,
+        finalEndDate, // Use our potentially updated end_date
         user_name,
         user_email,
         activity,
@@ -241,7 +242,7 @@ class TicketController {
         id,
       ];
 
-      const result = await pool.query(query, values);
+      const result = await poolNisa.query(query, values);
 
       return res.status(200).json({
         status: "success",
@@ -265,7 +266,7 @@ class TicketController {
       // Check if ticket exists
       const checkQuery =
         "SELECT * FROM ott_system_tickets_activity WHERE ticket_id = $1";
-      const checkResult = await pool.query(checkQuery, [id]);
+      const checkResult = await poolNisa.query(checkQuery, [id]);
 
       if (checkResult.rows.length === 0) {
         return res.status(404).json({
@@ -275,7 +276,7 @@ class TicketController {
       }
 
       // First delete all comments related to this ticket
-      await pool.query(
+      await poolNisa.query(
         "DELETE FROM ott_system_ticket_comments_activity WHERE ticket_id = $1",
         [id]
       );
@@ -283,7 +284,7 @@ class TicketController {
       // Then delete the ticket
       const query =
         "DELETE FROM ott_system_tickets_activity WHERE ticket_id = $1 RETURNING *";
-      const result = await pool.query(query, [id]);
+      const result = await poolNisa.query(query, [id]);
 
       return res.status(200).json({
         status: "success",
@@ -302,6 +303,7 @@ class TicketController {
   // Add comment to ticket
   static async addComment(req, res) {
     try {
+      const { name, email } = req.userAccount;
       const { ticket_id, comment } = req.body;
 
       if (!ticket_id || !comment) {
@@ -314,7 +316,7 @@ class TicketController {
       // Check if ticket exists
       const checkQuery =
         "SELECT * FROM ott_system_tickets_activity WHERE ticket_id = $1";
-      const checkResult = await pool.query(checkQuery, [ticket_id]);
+      const checkResult = await poolNisa.query(checkQuery, [ticket_id]);
 
       if (checkResult.rows.length === 0) {
         return res.status(404).json({
@@ -325,12 +327,17 @@ class TicketController {
 
       const query = `
         INSERT INTO ott_system_ticket_comments_activity 
-        (ticket_id, comment) 
-        VALUES ($1, $2) 
+        (ticket_id, comment, user_name, user_email) 
+        VALUES ($1, $2, $3, $4) 
         RETURNING *
       `;
 
-      const result = await pool.query(query, [ticket_id, comment]);
+      const result = await poolNisa.query(query, [
+        ticket_id,
+        comment,
+        name,
+        email,
+      ]);
 
       return res.status(201).json({
         status: "success",
@@ -353,7 +360,7 @@ class TicketController {
 
       const query =
         "SELECT * FROM ott_system_ticket_comments_activity WHERE ticket_id = $1 ORDER BY created_at DESC";
-      const result = await pool.query(query, [id]);
+      const result = await poolNisa.query(query, [id]);
 
       return res.status(200).json({
         status: "success",
@@ -368,15 +375,23 @@ class TicketController {
     }
   }
 
-  // Delete comment
-  static async deleteComment(req, res) {
+  // Update comment
+  static async updateComment(req, res) {
     try {
-      const { id } = req.params;
+      const { comment_id } = req.params;
+      const { comment, user_name } = req.body;
 
-      // Check if comment exists
+      if (!comment_id || !comment || !user_name) {
+        return res.status(400).json({
+          status: "error",
+          message: "Comment ID, comment, dan user_name diperlukan",
+        });
+      }
+
+      // Check if comment exists and verify user_name
       const checkQuery =
         "SELECT * FROM ott_system_ticket_comments_activity WHERE comment_id = $1";
-      const checkResult = await pool.query(checkQuery, [id]);
+      const checkResult = await poolNisa.query(checkQuery, [comment_id]);
 
       if (checkResult.rows.length === 0) {
         return res.status(404).json({
@@ -385,10 +400,77 @@ class TicketController {
         });
       }
 
+      // Verify user_name matches
+      if (checkResult.rows[0].user_name !== user_name) {
+        return res.status(403).json({
+          status: "error",
+          message: "Anda tidak memiliki izin untuk mengubah komentar ini",
+        });
+      }
+
+      // Update only the comment field
+      const query = `
+        UPDATE ott_system_ticket_comments_activity 
+        SET 
+          comment = $1,
+          created_at = NOW() AT TIME ZONE 'Asia/Jakarta'
+        WHERE comment_id = $2
+        RETURNING *
+      `;
+
+      const result = await poolNisa.query(query, [comment, comment_id]);
+
+      return res.status(200).json({
+        status: "success",
+        message: "Komentar berhasil diperbarui",
+        data: result.rows[0],
+      });
+    } catch (error) {
+      console.error("Error updating comment:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Terjadi kesalahan saat memperbarui komentar",
+      });
+    }
+  }
+
+  // Delete comment
+  static async deleteComment(req, res) {
+    try {
+      const { comment_id } = req.params;
+      const { user_name } = req.body;
+
+      if (!comment_id || !user_name) {
+        return res.status(400).json({
+          status: "error",
+          message: "Comment ID dan user_name diperlukan",
+        });
+      }
+
+      // Check if comment exists and verify user_name
+      const checkQuery =
+        "SELECT * FROM ott_system_ticket_comments_activity WHERE comment_id = $1";
+      const checkResult = await poolNisa.query(checkQuery, [comment_id]);
+
+      if (checkResult.rows.length === 0) {
+        return res.status(404).json({
+          status: "error",
+          message: "Komentar tidak ditemukan",
+        });
+      }
+
+      // Verify user_name matches
+      if (checkResult.rows[0].user_name !== user_name) {
+        return res.status(403).json({
+          status: "error",
+          message: "Anda tidak memiliki izin untuk menghapus komentar ini",
+        });
+      }
+
       // Delete the comment
       const query =
         "DELETE FROM ott_system_ticket_comments_activity WHERE comment_id = $1 RETURNING *";
-      const result = await pool.query(query, [id]);
+      const result = await poolNisa.query(query, [comment_id]);
 
       return res.status(200).json({
         status: "success",

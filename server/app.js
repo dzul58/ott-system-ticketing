@@ -29,7 +29,8 @@ app.delete("/api/tickets/:id", TicketController.deleteTicket);
 // Routes untuk Comment
 app.post("/api/comments", TicketController.addComment);
 app.get("/api/tickets/:id/comments", TicketController.getComments);
-app.delete("/api/tickets/:id/comment", TicketController.deleteComment);
+app.put("/api/comments/:comment_id", TicketController.updateComment);
+app.delete("/api/comments/:comment_id", TicketController.deleteComment);
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);

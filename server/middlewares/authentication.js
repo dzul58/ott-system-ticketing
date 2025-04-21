@@ -1,5 +1,5 @@
 const { verifyToken } = require("../helpers/jwt");
-const pool = require("../config/config");
+const poolNisa = require("../config/config");
 
 const authentication = async (req, res, next) => {
   try {
@@ -16,7 +16,7 @@ const authentication = async (req, res, next) => {
     }
 
     const jwtPayload = verifyToken(accessToken);
-    const result = await pool.query(
+    const result = await poolNisa.query(
       `SELECT
         u.muse_name,
         u.muse_code,
