@@ -1,4 +1,7 @@
 import { createBrowserRouter, redirect } from "react-router-dom";
+import Parent from "../pages/Parent";
+import Login from "../pages/Login";
+import Home from "../pages/Home";
 
 const aunthBeforeLogin = () => {
   const access_token = localStorage.access_token;
@@ -17,7 +20,11 @@ const aunthAfterLogin = () => {
 };
 
 const router = createBrowserRouter([
-
+  // {
+  //   path: "/auto-login",
+  //   element: <AutoLogin />,
+  //   errorElement: <ErrorPage />,
+  // },
   {
     path: "/login",
     element: <Login />,
@@ -28,6 +35,7 @@ const router = createBrowserRouter([
     children: [
       {
         path: "/",
+        element: <Home />,
       },
     ],
     loader: aunthBeforeLogin,

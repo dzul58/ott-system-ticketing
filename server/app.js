@@ -8,9 +8,11 @@ const authentication = require("./middlewares/authentication");
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: ["http://172.17.42.177:5173", "http://localhost:5173"],
+    credentials: true,
   })
 );
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
