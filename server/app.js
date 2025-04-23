@@ -26,6 +26,7 @@ app.get("/api/tickets", TicketController.getAllTickets);
 app.get("/api/tickets/:id", TicketController.getTicketById);
 app.post("/api/tickets", TicketController.createTicket);
 app.put("/api/tickets/:id", TicketController.updateTicket);
+app.put("/api/tickets-engineer/:id", TicketController.updateTicketEngineer);
 app.delete("/api/tickets/:id", TicketController.deleteTicket);
 
 // Routes untuk Comment
@@ -33,6 +34,9 @@ app.post("/api/comments", TicketController.addComment);
 app.get("/api/tickets/:id/comments", TicketController.getComments);
 app.put("/api/comments/:comment_id", TicketController.updateComment);
 app.delete("/api/comments/:comment_id", TicketController.deleteComment);
+
+// Routes untuk Users
+app.get("/api/users/noc-ott", TicketController.getNocOttUsers);
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);

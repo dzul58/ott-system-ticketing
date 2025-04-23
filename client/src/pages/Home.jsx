@@ -6,10 +6,12 @@ const Home = () => {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchParams, setSearchParams] = useState({
-    name: "",
-    role: "",
-    region: "All Regions",
-    skills: "",
+    user_name_executor: "",
+    created_by_name: "",
+    category: "",
+    activity: "",
+    type: "",
+    status: "",
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -21,11 +23,23 @@ const Home = () => {
     fetchTickets();
   }, [currentPage]);
 
-  const fetchTickets = async () => {
+  const fetchTickets = async (params = {}) => {
     try {
       setLoading(true);
+      // Membuat query parameters
+      const queryParams = new URLSearchParams({
+        page: currentPage,
+        limit: 5,
+        ...params,
+      });
+
+      // Filter out empty values
+      Object.keys(queryParams).forEach(
+        (key) => !queryParams.get(key) && queryParams.delete(key)
+      );
+
       const response = await axios.get(
-        `http://localhost:3000/api/tickets?page=${currentPage}&limit=5`,
+        `http://localhost:3000/api/tickets?${queryParams.toString()}`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.access_token}`,
@@ -43,17 +57,31 @@ const Home = () => {
   };
 
   const handleSearch = () => {
-    // Implementasi search akan ditambahkan kemudian
-    console.log("Searching with params:", searchParams);
+    // Filter empty values
+    const filteredParams = Object.fromEntries(
+      Object.entries(searchParams).filter(([_, value]) => value !== "")
+    );
+
+    // Reset to page 1 when searching
+    setCurrentPage(1);
+
+    // Call fetchTickets with search parameters
+    fetchTickets(filteredParams);
   };
 
   const handleClear = () => {
     setSearchParams({
-      name: "",
-      role: "",
-      region: "All Regions",
-      skills: "",
+      user_name_executor: "",
+      created_by_name: "",
+      category: "",
+      activity: "",
+      type: "",
+      status: "",
     });
+
+    // Reset to page 1 and fetch all tickets
+    setCurrentPage(1);
+    fetchTickets();
   };
 
   const handleInputChange = (e) => {
@@ -129,79 +157,124 @@ const Home = () => {
     <>
       {/* Search Filters */}
       <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Name
+              Created By
             </label>
             <input
               type="text"
-              name="name"
-              placeholder="Search by name"
+              name="created_by_name"
+              placeholder="Search by creator"
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              value={searchParams.name}
+              value={searchParams.created_by_name}
               onChange={handleInputChange}
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Role
+              Category
             </label>
             <input
               type="text"
-              name="role"
-              placeholder="Search by role"
+              name="category"
+              placeholder="Search by category"
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              value={searchParams.role}
+              value={searchParams.category}
               onChange={handleInputChange}
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Region
+              Type
+            </label>
+            <input
+              type="text"
+              name="type"
+              placeholder="Search by type"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              value={searchParams.type}
+              onChange={handleInputChange}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Activity
+            </label>
+            <input
+              type="text"
+              name="activity"
+              placeholder="Search by activity"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              value={searchParams.activity}
+              onChange={handleInputChange}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Executor Name
+            </label>
+            <input
+              type="text"
+              name="user_name_executor"
+              placeholder="Search by executor"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              value={searchParams.user_name_executor}
+              onChange={handleInputChange}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Status
             </label>
             <select
-              name="region"
+              name="status"
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              value={searchParams.region}
+              value={searchParams.status}
               onChange={handleInputChange}
             >
-              <option>All Regions</option>
-              <option>North America</option>
-              <option>Europe</option>
-              <option>Asia-Pacific</option>
-              <option>South America</option>
-              <option>Middle East</option>
+              <option value="">All Status</option>
+              <option value="Open">Open</option>
+              <option value="On Progress">On Progress</option>
+              <option value="Closed">Closed</option>
             </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Skills
-            </label>
-            <input
-              type="text"
-              name="skills"
-              placeholder="Search by skills"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              value={searchParams.skills}
-              onChange={handleInputChange}
-            />
           </div>
         </div>
 
-        <div className="flex justify-end gap-3">
+        <div className="flex justify-between">
           <button
-            onClick={handleClear}
-            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+            onClick={() => navigate("/tickets/create")}
+            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center"
           >
-            Clear
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5 mr-1"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                clipRule="evenodd"
+              />
+            </svg>
+            Buat Tiket Baru
           </button>
-          <button
-            onClick={handleSearch}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-          >
-            Search
-          </button>
+
+          <div className="flex gap-3">
+            <button
+              onClick={handleClear}
+              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+            >
+              Clear
+            </button>
+            <button
+              onClick={handleSearch}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              Search
+            </button>
+          </div>
         </div>
       </div>
 
@@ -211,7 +284,7 @@ const Home = () => {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Executor
+                Created By
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Category
@@ -221,6 +294,9 @@ const Home = () => {
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Activity
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Executor
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Start Date
@@ -236,13 +312,13 @@ const Home = () => {
           <tbody className="bg-white divide-y divide-gray-200">
             {loading ? (
               <tr>
-                <td colSpan="7" className="px-6 py-4 text-center">
+                <td colSpan="8" className="px-6 py-4 text-center">
                   Loading...
                 </td>
               </tr>
             ) : tickets.length === 0 ? (
               <tr>
-                <td colSpan="7" className="px-6 py-4 text-center">
+                <td colSpan="8" className="px-6 py-4 text-center">
                   No tickets found
                 </td>
               </tr>
@@ -251,7 +327,7 @@ const Home = () => {
                 <tr key={ticket.ticket_id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">
-                      {ticket.user_name}
+                      {ticket.created_by_name || "-"}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -265,6 +341,11 @@ const Home = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
                       {ticket.activity}...
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">
+                      {ticket.user_name_executor || ticket.user_name}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

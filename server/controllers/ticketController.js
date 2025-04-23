@@ -12,6 +12,7 @@ class TicketController {
         activity,
         type,
         status,
+        created_by_name,
       } = req.query;
 
       const offset = (page - 1) * limit;
@@ -21,7 +22,14 @@ class TicketController {
       const params = [];
       let paramCount = 1;
 
-      if (category || user_name || activity || type || status) {
+      if (
+        category ||
+        user_name ||
+        activity ||
+        type ||
+        status ||
+        created_by_name
+      ) {
         whereClause = "WHERE ";
 
         if (category) {
@@ -31,7 +39,7 @@ class TicketController {
 
         if (user_name) {
           if (params.length > 0) whereClause += "AND ";
-          whereClause += `user_name ILIKE $${paramCount++} `;
+          whereClause += `user_name_executor ILIKE $${paramCount++} `;
           params.push(`%${user_name}%`);
         }
 
@@ -51,6 +59,12 @@ class TicketController {
           if (params.length > 0) whereClause += "AND ";
           whereClause += `status ILIKE $${paramCount++} `;
           params.push(`%${status}%`);
+        }
+
+        if (created_by_name) {
+          if (params.length > 0) whereClause += "AND ";
+          whereClause += `created_by_name ILIKE $${paramCount++} `;
+          params.push(`%${created_by_name}%`);
         }
       }
 
@@ -170,31 +184,32 @@ class TicketController {
       const { name, email } = req.userAccount;
       const {
         category,
-        end_date,
-        user_name,
+        user_name_executor,
         user_email,
         activity,
         detail_activity,
         type,
-        status,
+        end_date,
       } = req.body;
 
       const query = `
         INSERT INTO ott_system_tickets_activity 
-        (category, end_date, user_name, user_email, activity, detail_activity, type, status) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+        (created_by_name, created_by_email, category, user_name_executor, user_email, activity, detail_activity, type, status, end_date) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
         RETURNING *
       `;
 
       const values = [
+        name, // created_by_name
+        email, // created_by_email
         category,
-        end_date,
-        name,
-        email,
+        user_name_executor,
+        user_email,
         activity,
         detail_activity,
         type,
-        status,
+        "Open",
+        end_date,
       ];
 
       const result = await poolNisa.query(query, values);
@@ -213,20 +228,20 @@ class TicketController {
     }
   }
 
-  // Update ticket
+  // Update ticket Pak eko
   static async updateTicket(req, res) {
     try {
       const { id } = req.params;
       const {
         category,
-        start_date,
-        end_date,
-        user_name,
+        user_name_executor,
         user_email,
         activity,
         detail_activity,
         type,
         status,
+        start_date,
+        end_date,
       } = req.body;
 
       // Check if ticket exists
@@ -255,28 +270,110 @@ class TicketController {
         UPDATE ott_system_tickets_activity 
         SET 
           category = COALESCE($1, category),
-          start_date = COALESCE($2, start_date),
-          end_date = COALESCE($3, end_date),
-          user_name = COALESCE($4, user_name),
-          user_email = COALESCE($5, user_email),
-          activity = COALESCE($6, activity),
-          detail_activity = COALESCE($7, detail_activity),
-          type = COALESCE($8, type),
-          status = COALESCE($9, status)
+          user_name_executor = COALESCE($2, user_name_executor),
+          user_email = COALESCE($3, user_email),
+          activity = COALESCE($4, activity),
+          detail_activity = COALESCE($5, detail_activity),
+          type = COALESCE($6, type),
+          status = COALESCE($7, status),
+          start_date = COALESCE($8, start_date),
+          end_date = COALESCE($9, end_date)
         WHERE ticket_id = $10
         RETURNING *
       `;
 
       const values = [
         category,
-        start_date,
-        finalEndDate, // Use our potentially updated end_date
-        user_name,
+        user_name_executor,
         user_email,
         activity,
         detail_activity,
         type,
         status,
+        start_date,
+        finalEndDate, // Use our potentially updated end_date
+        id,
+      ];
+
+      const result = await poolNisa.query(query, values);
+
+      return res.status(200).json({
+        status: "success",
+        message: "Tiket berhasil diperbarui",
+        data: result.rows[0],
+      });
+    } catch (error) {
+      console.error("Error updating ticket:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Terjadi kesalahan saat memperbarui tiket",
+      });
+    }
+  }
+
+  // Update ticket engineer
+  static async updateTicketEngineer(req, res) {
+    try {
+      const { id } = req.params;
+      const { name, email } = req.userAccount;
+      const {
+        category,
+        activity,
+        detail_activity,
+        type,
+        status,
+        start_date,
+        end_date,
+      } = req.body;
+
+      // Check if ticket exists
+      const checkQuery =
+        "SELECT * FROM ott_system_tickets_activity WHERE ticket_id = $1";
+      const checkResult = await poolNisa.query(checkQuery, [id]);
+
+      if (checkResult.rows.length === 0) {
+        return res.status(404).json({
+          status: "error",
+          message: "Tiket tidak ditemukan",
+        });
+      }
+
+      let finalEndDate = end_date;
+
+      // If status is being updated to "Closed", set end_date to current time in Jakarta timezone
+      if (status === "Closed") {
+        const jakartaTimeQuery =
+          "SELECT NOW() AT TIME ZONE 'Asia/Jakarta' as current_time";
+        const timeResult = await poolNisa.query(jakartaTimeQuery);
+        finalEndDate = timeResult.rows[0].current_time;
+      }
+
+      const query = `
+        UPDATE ott_system_tickets_activity 
+        SET 
+          category = COALESCE($1, category),
+          user_name_executor = COALESCE($2, user_name_executor),
+          user_email = COALESCE($3, user_email),
+          activity = COALESCE($4, activity),
+          detail_activity = COALESCE($5, detail_activity),
+          type = COALESCE($6, type),
+          status = COALESCE($7, status),
+          start_date = COALESCE($8, start_date),
+          end_date = COALESCE($9, end_date)
+        WHERE ticket_id = $10
+        RETURNING *
+      `;
+
+      const values = [
+        category,
+        name,
+        email,
+        activity,
+        detail_activity,
+        type,
+        status,
+        start_date,
+        finalEndDate, // Use our potentially updated end_date
         id,
       ];
 
@@ -520,6 +617,40 @@ class TicketController {
       return res.status(500).json({
         status: "error",
         message: "Terjadi kesalahan saat menghapus komentar",
+      });
+    }
+  }
+
+  // Get NOC OTT & System Full users
+  static async getNocOttUsers(req, res) {
+    try {
+      const query = `
+        SELECT
+            u.muse_name,
+            u.muse_email
+        FROM
+            mst_user u
+        JOIN
+            mst_user_group g ON u.muse_code = g.mugr_muse_code
+        JOIN
+            mst_user_profile p ON g.mugr_mupf_code = p.mupf_code
+        WHERE
+            p.mupf_name LIKE '%NOC OTT & System Full%'
+        ORDER BY
+            u.muse_name ASC
+      `;
+
+      const result = await poolNisa.query(query);
+
+      return res.status(200).json({
+        status: "success",
+        data: result.rows,
+      });
+    } catch (error) {
+      console.error("Error getting NOC OTT users:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Terjadi kesalahan saat mengambil data user NOC OTT & System",
       });
     }
   }
