@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
-const CreateTicket = () => {
+const EditTicket = () => {
   const [loading, setLoading] = useState(false);
   const [executors, setExecutors] = useState([]);
   const [formData, setFormData] = useState({
@@ -12,19 +12,22 @@ const CreateTicket = () => {
     activity: "",
     detail_activity: "",
     type: "",
-    status: "Open",
+    status: "",
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [showExecutorDropdown, setShowExecutorDropdown] = useState(false);
   const [filteredExecutors, setFilteredExecutors] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Tambahkan ref untuk dropdown container
   const dropdownRef = useRef(null);
 
   const navigate = useNavigate();
+  const { id } = useParams();
 
   useEffect(() => {
+    fetchTicket();
     fetchExecutors();
 
     // Tambahkan event listener untuk menutup dropdown jika user klik di luar
@@ -40,17 +43,46 @@ const CreateTicket = () => {
     };
   }, []);
 
-  useEffect(() => {
-    if (formData.user_name_executor) {
-      const filtered = executors.filter((executor) => {
-        const executorNameLower = executor.muse_name.toLowerCase();
-        const inputLower = formData.user_name_executor.toLowerCase();
-
-        return executorNameLower.includes(inputLower);
+  const fetchTicket = async () => {
+    try {
+      setIsLoading(true);
+      const response = await axios.get(
+        `http://localhost:3000/api/tickets/${id}/edit`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.access_token}`,
+          },
+        }
+      );
+      const ticketData = response.data.data;
+      setFormData({
+        category: ticketData.category || "",
+        user_name_executor: ticketData.user_name_executor || "",
+        user_email: ticketData.user_email || "",
+        activity: ticketData.activity || "",
+        detail_activity: ticketData.detail_activity || "",
+        type: ticketData.type || "",
+        status: ticketData.status || "",
       });
+      setIsLoading(false);
+    } catch (error) {
+      console.error("Error fetching ticket:", error);
+      setError("Gagal memuat data tiket");
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Filter executors based on input
+    if (formData.user_name_executor) {
+      const filtered = executors.filter((executor) =>
+        executor.muse_name
+          .toLowerCase()
+          .includes(formData.user_name_executor.toLowerCase())
+      );
       setFilteredExecutors(filtered);
     } else {
-      setFilteredExecutors([]);
+      setFilteredExecutors(executors);
     }
   }, [formData.user_name_executor, executors]);
 
@@ -65,6 +97,7 @@ const CreateTicket = () => {
         }
       );
       setExecutors(response.data.data);
+      setFilteredExecutors(response.data.data);
     } catch (error) {
       console.error("Error fetching executors:", error);
       setError("Gagal memuat daftar executor");
@@ -127,8 +160,8 @@ const CreateTicket = () => {
         return;
       }
 
-      const response = await axios.post(
-        "http://localhost:3000/api/tickets",
+      const response = await axios.put(
+        `http://localhost:3000/api/tickets/${id}`,
         formData,
         {
           headers: {
@@ -137,26 +170,32 @@ const CreateTicket = () => {
         }
       );
 
-      setSuccess("Tiket berhasil dibuat!");
+      setSuccess("Tiket berhasil diupdate!");
       setLoading(false);
 
       // Langsung navigasi ke halaman home tanpa delay
       navigate("/");
     } catch (error) {
-      console.error("Error creating ticket:", error);
+      console.error("Error updating ticket:", error);
       setError(
-        error.response?.data?.message || "Terjadi kesalahan saat membuat tiket"
+        error.response?.data?.message || "Terjadi kesalahan saat update tiket"
       );
       setLoading(false);
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold text-gray-800">
-          Create New Ticket
-        </h1>
+        <h1 className="text-2xl font-semibold text-gray-800">Edit Ticket</h1>
         <button
           onClick={() => navigate("/")}
           className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 flex items-center"
@@ -173,7 +212,7 @@ const CreateTicket = () => {
               clipRule="evenodd"
             />
           </svg>
-          Back
+          Kembali
         </button>
       </div>
 
@@ -204,7 +243,7 @@ const CreateTicket = () => {
                   onChange={handleInputChange}
                   required
                 >
-                  <option value="">Select Category</option>
+                  <option value="">Pilih Kategori</option>
                   <option value="OTT">OTT</option>
                   <option value="System">System</option>
                 </select>
@@ -232,7 +271,7 @@ const CreateTicket = () => {
                   onChange={handleInputChange}
                   required
                 >
-                  <option value="">Select Type</option>
+                  <option value="">Pilih Tipe</option>
                   <option value="Issue">Issue</option>
                   <option value="Maintenance">Maintenance</option>
                   <option value="Request">Request</option>
@@ -257,7 +296,7 @@ const CreateTicket = () => {
                 <input
                   type="text"
                   name="user_name_executor"
-                  placeholder="Type executor name"
+                  placeholder="Ketik nama executor"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   value={formData.user_name_executor}
                   onChange={handleInputChange}
@@ -303,7 +342,7 @@ const CreateTicket = () => {
               <input
                 type="text"
                 name="activity"
-                placeholder="Activity title"
+                placeholder="Judul aktivitas"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 value={formData.activity}
                 onChange={handleInputChange}
@@ -341,12 +380,12 @@ const CreateTicket = () => {
 
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Activity Details
+                Detail Activity
               </label>
               <textarea
                 name="detail_activity"
                 rows="5"
-                placeholder="Enter activity details"
+                placeholder="Masukkan detail aktivitas"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 value={formData.detail_activity}
                 onChange={handleInputChange}
@@ -360,7 +399,7 @@ const CreateTicket = () => {
               onClick={() => navigate("/")}
               className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 mr-2"
             >
-              Cancel
+              Batal
             </button>
             <button
               type="submit"
@@ -389,7 +428,7 @@ const CreateTicket = () => {
                       d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                     ></path>
                   </svg>
-                  Saving...
+                  Menyimpan...
                 </>
               ) : (
                 <>
@@ -405,7 +444,7 @@ const CreateTicket = () => {
                       clipRule="evenodd"
                     />
                   </svg>
-                  Create Ticket
+                  Update Ticket
                 </>
               )}
             </button>
@@ -416,4 +455,4 @@ const CreateTicket = () => {
   );
 };
 
-export default CreateTicket;
+export default EditTicket;

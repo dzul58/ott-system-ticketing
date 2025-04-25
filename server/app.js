@@ -23,10 +23,11 @@ app.use(authentication);
 
 // Routes untuk Ticket
 app.get("/api/tickets", TicketController.getAllTickets);
-app.get("/api/tickets/:id", TicketController.getTicketById);
+app.get("/api/tickets/:id", TicketController.getTicketByIdWithComments);
+app.get("/api/tickets/:id/edit", TicketController.getTicketById);
 app.post("/api/tickets", TicketController.createTicket);
-app.put("/api/tickets/:id", TicketController.updateTicket);
-app.put("/api/tickets-engineer/:id", TicketController.updateTicketEngineer);
+app.put("/api/tickets/:id", TicketController.editTicket);
+app.put("/api/tickets-engineer/:id", TicketController.updateTicket);
 app.delete("/api/tickets/:id", TicketController.deleteTicket);
 
 // Routes untuk Comment

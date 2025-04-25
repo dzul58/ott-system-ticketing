@@ -103,8 +103,8 @@ class TicketController {
     }
   }
 
-  // Get ticket by ID
-  static async getTicketById(req, res) {
+  // Get ticket by ID With Comments
+  static async getTicketByIdWithComments(req, res) {
     try {
       const { id } = req.params;
 
@@ -142,7 +142,10 @@ class TicketController {
         category: result.rows[0].category,
         start_date: result.rows[0].start_date,
         end_date: result.rows[0].end_date,
+        created_by_name: result.rows[0].created_by_name,
+        created_by_email: result.rows[0].created_by_email,
         user_name: result.rows[0].user_name,
+        user_name_executor: result.rows[0].user_name_executor,
         user_email: result.rows[0].user_email,
         activity: result.rows[0].activity,
         detail_activity: result.rows[0].detail_activity,
@@ -178,6 +181,39 @@ class TicketController {
     }
   }
 
+  // Get ticket by ID
+  static async getTicketById(req, res) {
+    try {
+      const { id } = req.params;
+
+      // Query untuk hanya mendapatkan data ticket tanpa comments
+      const query = `
+          SELECT * FROM ott_system_tickets_activity
+          WHERE ticket_id = $1
+        `;
+
+      const result = await poolNisa.query(query, [id]);
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          status: "error",
+          message: "Tiket tidak ditemukan",
+        });
+      }
+
+      return res.status(200).json({
+        status: "success",
+        data: result.rows[0],
+      });
+    } catch (error) {
+      console.error("Error getting ticket by ID:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Terjadi kesalahan saat mengambil data tiket",
+      });
+    }
+  }
+
   // Create new ticket
   static async createTicket(req, res) {
     try {
@@ -189,8 +225,19 @@ class TicketController {
         activity,
         detail_activity,
         type,
+        status,
         end_date,
       } = req.body;
+
+      let finalEndDate = end_date;
+
+      // If status is "Closed", set end_date to current time in Jakarta timezone
+      if (status === "Closed") {
+        const jakartaTimeQuery =
+          "SELECT NOW() AT TIME ZONE 'Asia/Jakarta' as current_time";
+        const timeResult = await poolNisa.query(jakartaTimeQuery);
+        finalEndDate = timeResult.rows[0].current_time;
+      }
 
       const query = `
         INSERT INTO ott_system_tickets_activity 
@@ -208,8 +255,8 @@ class TicketController {
         activity,
         detail_activity,
         type,
-        "Open",
-        end_date,
+        status,
+        finalEndDate,
       ];
 
       const result = await poolNisa.query(query, values);
@@ -228,8 +275,8 @@ class TicketController {
     }
   }
 
-  // Update ticket Pak eko
-  static async updateTicket(req, res) {
+  // Edit ticket
+  static async editTicket(req, res) {
     try {
       const { id } = req.params;
       const {
@@ -277,7 +324,10 @@ class TicketController {
           type = COALESCE($6, type),
           status = COALESCE($7, status),
           start_date = COALESCE($8, start_date),
-          end_date = COALESCE($9, end_date)
+          end_date = CASE 
+                        WHEN $7 = 'Closed' THEN $9
+                        ELSE COALESCE($9, end_date)
+                     END
         WHERE ticket_id = $10
         RETURNING *
       `;
@@ -291,7 +341,7 @@ class TicketController {
         type,
         status,
         start_date,
-        finalEndDate, // Use our potentially updated end_date
+        finalEndDate,
         id,
       ];
 
@@ -311,8 +361,8 @@ class TicketController {
     }
   }
 
-  // Update ticket engineer
-  static async updateTicketEngineer(req, res) {
+  // Update ticket
+  static async updateTicket(req, res) {
     try {
       const { id } = req.params;
       const { name, email } = req.userAccount;
@@ -359,7 +409,10 @@ class TicketController {
           type = COALESCE($6, type),
           status = COALESCE($7, status),
           start_date = COALESCE($8, start_date),
-          end_date = COALESCE($9, end_date)
+          end_date = CASE 
+                        WHEN $7 = 'Closed' THEN $9
+                        ELSE COALESCE($9, end_date)
+                     END
         WHERE ticket_id = $10
         RETURNING *
       `;
@@ -373,7 +426,7 @@ class TicketController {
         type,
         status,
         start_date,
-        finalEndDate, // Use our potentially updated end_date
+        finalEndDate,
         id,
       ];
 
@@ -625,19 +678,20 @@ class TicketController {
   static async getNocOttUsers(req, res) {
     try {
       const query = `
-        SELECT
-            u.muse_name,
-            u.muse_email
-        FROM
-            mst_user u
-        JOIN
-            mst_user_group g ON u.muse_code = g.mugr_muse_code
-        JOIN
-            mst_user_profile p ON g.mugr_mupf_code = p.mupf_code
-        WHERE
-            p.mupf_name LIKE '%NOC OTT & System Full%'
-        ORDER BY
-            u.muse_name ASC
+SELECT
+    u.muse_name,
+    u.muse_email
+FROM
+    mst_user u
+JOIN
+    mst_user_group g ON u.muse_code = g.mugr_muse_code
+JOIN
+    mst_user_profile p ON g.mugr_mupf_code = p.mupf_code
+WHERE
+    p.mupf_name LIKE '%NOC OTT &amp; System Full%'
+    
+   ORDER BY
+            u.muse_name asc;
       `;
 
       const result = await poolNisa.query(query);

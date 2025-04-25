@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
 
 const Home = () => {
   const [tickets, setTickets] = useState([]);
@@ -29,7 +30,7 @@ const Home = () => {
       // Membuat query parameters
       const queryParams = new URLSearchParams({
         page: currentPage,
-        limit: 5,
+        limit: 6,
         ...params,
       });
 
@@ -110,27 +111,41 @@ const Home = () => {
   };
 
   const handleViewTicket = (id) => {
-    navigate(`/tickets/${id}`);
+    navigate(`/detail-ticket/${id}`);
   };
 
   const handleEditTicket = (id) => {
-    navigate(`/tickets/edit/${id}`);
+    navigate(`/edit-ticket/${id}`);
   };
 
   const handleDeleteTicket = async (id) => {
     try {
-      if (window.confirm("Apakah Anda yakin ingin menghapus tiket ini?")) {
-        await axios.delete(`http://localhost:3000/api/tickets/${id}`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.access_token}`,
-          },
-        });
-        // Refresh data setelah penghapusan
-        fetchTickets();
-      }
+      Swal.fire({
+        title: "Are you sure?",
+        text: "You won't be able to revert this!",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#3085d6",
+        cancelButtonColor: "#d33",
+        confirmButtonText: "Yes, delete it!",
+        cancelButtonText: "Cancel",
+      }).then(async (result) => {
+        if (result.isConfirmed) {
+          await axios.delete(`http://localhost:3000/api/tickets/${id}`, {
+            headers: {
+              Authorization: `Bearer ${localStorage.access_token}`,
+            },
+          });
+
+          // Refresh data setelah penghapusan
+          fetchTickets();
+
+          Swal.fire("Deleted!", "Your ticket has been deleted.", "success");
+        }
+      });
     } catch (error) {
       console.error("Error deleting ticket:", error);
-      alert("Gagal menghapus tiket");
+      Swal.fire("Failed!", "There was an error deleting the ticket.", "error");
     }
   };
 
@@ -243,7 +258,7 @@ const Home = () => {
 
         <div className="flex justify-between">
           <button
-            onClick={() => navigate("/tickets/create")}
+            onClick={() => navigate("/create-ticket")}
             className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center"
           >
             <svg
@@ -258,7 +273,7 @@ const Home = () => {
                 clipRule="evenodd"
               />
             </svg>
-            Buat Tiket Baru
+            Create New Ticket
           </button>
 
           <div className="flex gap-3">
@@ -284,6 +299,9 @@ const Home = () => {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                No.
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Created By
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -292,7 +310,7 @@ const Home = () => {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Type
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
                 Activity
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -312,19 +330,24 @@ const Home = () => {
           <tbody className="bg-white divide-y divide-gray-200">
             {loading ? (
               <tr>
-                <td colSpan="8" className="px-6 py-4 text-center">
+                <td colSpan="9" className="px-6 py-4 text-center">
                   Loading...
                 </td>
               </tr>
             ) : tickets.length === 0 ? (
               <tr>
-                <td colSpan="8" className="px-6 py-4 text-center">
+                <td colSpan="9" className="px-6 py-4 text-center">
                   No tickets found
                 </td>
               </tr>
             ) : (
-              tickets.map((ticket) => (
+              tickets.map((ticket, index) => (
                 <tr key={ticket.ticket_id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">
+                      {(currentPage - 1) * 5 + index + 1}
+                    </div>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">
                       {ticket.created_by_name || "-"}
@@ -338,14 +361,17 @@ const Home = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{ticket.type}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {ticket.activity}...
+                  <td className="px-6 py-4">
+                    <div
+                      className="text-sm text-gray-900 break-words"
+                      title={ticket.activity}
+                    >
+                      {ticket.activity}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {ticket.user_name_executor || ticket.user_name}
+                    <div className="text-sm text-gray-900">
+                      {ticket.user_name_executor || ticket.user_name || "-"}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

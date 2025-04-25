@@ -12,7 +12,10 @@ const Navbar = () => {
   return (
     <nav className="bg-white shadow-sm px-6 py-4">
       <div className="flex justify-between items-center">
-        <div className="flex items-center gap-0 mr-2">
+        <div
+          className="flex items-center gap-0 mr-2 cursor-pointer"
+          onClick={() => navigate("/")}
+        >
           <img src={ottLogo} alt="OTT Logo" className="h-12 w-auto" />
           <h1 className="text-2xl font-semibold text-blue-600 -ml-1">
             OTT System Work Order
