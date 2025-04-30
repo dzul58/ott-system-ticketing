@@ -5,6 +5,7 @@ const port = 3000;
 const TicketController = require("./controllers/ticketController");
 const LoginController = require("./controllers/loginController");
 const authentication = require("./middlewares/authentication");
+const { upload, handleMulterError } = require("./middlewares/multer");
 
 app.use(
   cors({
@@ -32,6 +33,16 @@ app.delete("/api/tickets/:id", TicketController.deleteTicket);
 
 // Routes untuk Comment
 app.post("/api/comments", TicketController.addComment);
+app.post(
+  "/api/comments/:comment_id/attachments",
+  upload.single("file"),
+  handleMulterError,
+  TicketController.uploadCommentAttachment
+);
+app.get(
+  "/api/comments/:comment_id/attachments",
+  TicketController.getCommentAttachments
+);
 app.get("/api/tickets/:id/comments", TicketController.getComments);
 app.put("/api/comments/:comment_id", TicketController.updateComment);
 app.delete("/api/comments/:comment_id", TicketController.deleteComment);

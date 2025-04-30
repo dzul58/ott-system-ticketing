@@ -1,4 +1,6 @@
 const poolNisa = require("../config/config");
+const { upload, handleMulterError } = require("../middlewares/multer");
+const UploadController = require("./uploadController");
 
 class TicketController {
   // Get all tickets with search and pagination
@@ -8,7 +10,7 @@ class TicketController {
         page = 1,
         limit = 10,
         category,
-        user_name,
+        user_name_executor,
         activity,
         type,
         status,
@@ -24,7 +26,7 @@ class TicketController {
 
       if (
         category ||
-        user_name ||
+        user_name_executor ||
         activity ||
         type ||
         status ||
@@ -37,10 +39,10 @@ class TicketController {
           params.push(`%${category}%`);
         }
 
-        if (user_name) {
+        if (user_name_executor) {
           if (params.length > 0) whereClause += "AND ";
           whereClause += `user_name_executor ILIKE $${paramCount++} `;
-          params.push(`%${user_name}%`);
+          params.push(`%${user_name_executor}%`);
         }
 
         if (activity) {
@@ -463,22 +465,51 @@ class TicketController {
         });
       }
 
-      // First delete all comments related to this ticket
-      await poolNisa.query(
-        "DELETE FROM ott_system_ticket_comments_activity WHERE ticket_id = $1",
-        [id]
-      );
+      // Mulai transaksi
+      await poolNisa.query("BEGIN");
 
-      // Then delete the ticket
-      const query =
-        "DELETE FROM ott_system_tickets_activity WHERE ticket_id = $1 RETURNING *";
-      const result = await poolNisa.query(query, [id]);
+      try {
+        // Hapus semua attachment yang terkait dengan komentar tiket ini
+        const deleteAttachmentsQuery = `
+          DELETE FROM ott_system_comment_attachments 
+          WHERE comment_id IN (
+            SELECT comment_id 
+            FROM ott_system_ticket_comments_activity 
+            WHERE ticket_id = $1
+          )
+          RETURNING *
+        `;
+        await poolNisa.query(deleteAttachmentsQuery, [id]);
 
-      return res.status(200).json({
-        status: "success",
-        message: "Tiket berhasil dihapus",
-        data: result.rows[0],
-      });
+        // Hapus semua komentar yang terkait dengan tiket
+        const deleteCommentsQuery = `
+          DELETE FROM ott_system_ticket_comments_activity 
+          WHERE ticket_id = $1
+          RETURNING *
+        `;
+        await poolNisa.query(deleteCommentsQuery, [id]);
+
+        // Hapus tiket
+        const deleteTicketQuery = `
+          DELETE FROM ott_system_tickets_activity 
+          WHERE ticket_id = $1 
+          RETURNING *
+        `;
+        const result = await poolNisa.query(deleteTicketQuery, [id]);
+
+        // Commit transaksi
+        await poolNisa.query("COMMIT");
+
+        return res.status(200).json({
+          status: "success",
+          message: "Tiket dan semua data terkait berhasil dihapus",
+          data: result.rows[0],
+        });
+      } catch (error) {
+        // Rollback transaksi jika terjadi error
+        await poolNisa.query("ROLLBACK");
+        throw error;
+      }
     } catch (error) {
       console.error("Error deleting ticket:", error);
       return res.status(500).json({
@@ -655,16 +686,39 @@ class TicketController {
         });
       }
 
-      // Delete the comment
-      const query =
-        "DELETE FROM ott_system_ticket_comments_activity WHERE comment_id = $1 RETURNING *";
-      const result = await poolNisa.query(query, [comment_id]);
+      // Mulai transaksi
+      await poolNisa.query("BEGIN");
 
-      return res.status(200).json({
-        status: "success",
-        message: "Komentar berhasil dihapus",
-        data: result.rows[0],
-      });
+      try {
+        // Hapus semua attachment yang terkait dengan komentar
+        const deleteAttachmentsQuery = `
+          DELETE FROM ott_system_comment_attachments 
+          WHERE comment_id = $1
+          RETURNING *
+        `;
+        await poolNisa.query(deleteAttachmentsQuery, [comment_id]);
+
+        // Hapus komentar
+        const deleteCommentQuery = `
+          DELETE FROM ott_system_ticket_comments_activity 
+          WHERE comment_id = $1 
+          RETURNING *
+        `;
+        const result = await poolNisa.query(deleteCommentQuery, [comment_id]);
+
+        // Commit transaksi
+        await poolNisa.query("COMMIT");
+
+        return res.status(200).json({
+          status: "success",
+          message: "Komentar dan lampirannya berhasil dihapus",
+          data: result.rows[0],
+        });
+      } catch (error) {
+        // Rollback transaksi jika terjadi error
+        await poolNisa.query("ROLLBACK");
+        throw error;
+      }
     } catch (error) {
       console.error("Error deleting comment:", error);
       return res.status(500).json({
@@ -705,6 +759,89 @@ WHERE
       return res.status(500).json({
         status: "error",
         message: "Terjadi kesalahan saat mengambil data user NOC OTT & System",
+      });
+    }
+  }
+
+  static async uploadCommentAttachment(req, res) {
+    try {
+      const { comment_id } = req.params;
+      const uploadedFile = req.file;
+
+      if (!uploadedFile) {
+        return res.status(400).json({
+          status: "error",
+          message: "Tidak ada file yang diunggah",
+        });
+      }
+
+      // Tentukan fungsi upload berdasarkan tipe file
+      let uploadResult;
+      if (
+        uploadedFile.mimetype.startsWith("image/") ||
+        uploadedFile.mimetype.startsWith("video/")
+      ) {
+        uploadResult = await UploadController.uploadMediaFile(req, res);
+      } else {
+        uploadResult = await UploadController.uploadDocumentFile(req, res);
+      }
+
+      if (!uploadResult || !uploadResult.imageUrl) {
+        throw new Error("Gagal mendapatkan URL file yang diunggah");
+      }
+
+      // Simpan informasi file ke database
+      const query = `
+        INSERT INTO ott_system_comment_attachments 
+        (comment_id, file_name, file_link, file_type, file_size)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING *
+      `;
+
+      const values = [
+        comment_id,
+        uploadedFile.originalname,
+        uploadResult.imageUrl,
+        uploadedFile.mimetype,
+        uploadedFile.size,
+      ];
+
+      const result = await poolNisa.query(query, values);
+
+      return res.status(201).json({
+        status: "success",
+        data: result.rows[0],
+      });
+    } catch (error) {
+      console.error("Error uploading comment attachment:", error);
+      return res.status(500).json({
+        status: "error",
+        message: error.message || "Gagal mengunggah file",
+      });
+    }
+  }
+
+  static async getCommentAttachments(req, res) {
+    try {
+      const { comment_id } = req.params;
+
+      const query = `
+        SELECT * FROM ott_system_comment_attachments
+        WHERE comment_id = $1
+        ORDER BY uploaded_at DESC
+      `;
+
+      const result = await poolNisa.query(query, [comment_id]);
+
+      res.status(200).json({
+        status: "success",
+        data: result.rows,
+      });
+    } catch (error) {
+      console.error("Error getting comment attachments:", error);
+      res.status(500).json({
+        status: "error",
+        message: "Gagal mendapatkan attachment komentar",
       });
     }
   }

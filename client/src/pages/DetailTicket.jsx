@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import Swal from "sweetalert2";
+import FileViewer from "react-file-viewer";
+import { saveAs } from "file-saver";
 
 const DetailTicket = () => {
   const [ticket, setTicket] = useState(null);
@@ -11,12 +13,25 @@ const DetailTicket = () => {
   const [newComment, setNewComment] = useState("");
   const [commentLoading, setCommentLoading] = useState(false);
   const [editingComment, setEditingComment] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [commentAttachments, setCommentAttachments] = useState({});
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [showViewer, setShowViewer] = useState(false);
   const navigate = useNavigate();
   const { id } = useParams();
 
   useEffect(() => {
     fetchTicket();
   }, [id]);
+
+  useEffect(() => {
+    if (comments && comments.length > 0) {
+      comments.forEach((comment) => {
+        fetchCommentAttachments(comment.comment_id);
+      });
+    }
+  }, [comments]);
 
   // Format tanggal ke format yang lebih mudah dibaca
   const formatDate = (dateString) => {
@@ -99,13 +114,28 @@ const DetailTicket = () => {
     }
   };
 
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length > 5) {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Maksimal 5 file yang dapat diunggah",
+      });
+      return;
+    }
+    setSelectedFiles(files);
+  };
+
   const handleSubmitComment = async (e) => {
     e.preventDefault();
-    if (!newComment.trim()) return;
+    if (!newComment.trim() && selectedFiles.length === 0) return;
 
     try {
       setCommentLoading(true);
-      const response = await axios.post(
+
+      // Upload komentar terlebih dahulu
+      const commentResponse = await axios.post(
         "http://localhost:3000/api/comments",
         {
           ticket_id: id,
@@ -118,9 +148,35 @@ const DetailTicket = () => {
         }
       );
 
+      const commentId = commentResponse.data.data.comment_id;
+
+      // Upload file-file yang dipilih
+      if (selectedFiles.length > 0) {
+        setUploadingFiles(true);
+        const uploadPromises = selectedFiles.map(async (file) => {
+          const formData = new FormData();
+          formData.append("file", file);
+
+          await axios.post(
+            `http://localhost:3000/api/comments/${commentId}/attachments`,
+            formData,
+            {
+              headers: {
+                Authorization: `Bearer ${localStorage.access_token}`,
+                "Content-Type": "multipart/form-data",
+              },
+            }
+          );
+        });
+
+        await Promise.all(uploadPromises);
+        setUploadingFiles(false);
+      }
+
       // Refresh komentar setelah menambahkan
       fetchTicket();
       setNewComment("");
+      setSelectedFiles([]);
       setCommentLoading(false);
     } catch (err) {
       console.error("Error posting comment:", err);
@@ -130,6 +186,7 @@ const DetailTicket = () => {
         text: "Komentar gagal ditambahkan",
       });
       setCommentLoading(false);
+      setUploadingFiles(false);
     }
   };
 
@@ -204,6 +261,142 @@ const DetailTicket = () => {
         text: "Komentar gagal dihapus",
       });
     }
+  };
+
+  const fetchCommentAttachments = async (commentId) => {
+    try {
+      const response = await axios.get(
+        `http://localhost:3000/api/comments/${commentId}/attachments`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.access_token}`,
+          },
+        }
+      );
+      setCommentAttachments((prev) => ({
+        ...prev,
+        [commentId]: response.data.data,
+      }));
+    } catch (error) {
+      console.error("Error fetching attachments:", error);
+    }
+  };
+
+  const handleOpenAttachment = (fileLink, fileName, fileType) => {
+    // Buka file di tab baru
+    window.open(fileLink, "_blank");
+  };
+
+  const handleCloseViewer = () => {
+    setShowViewer(false);
+    setSelectedFile(null);
+  };
+
+  const handleDownload = () => {
+    if (selectedFile) {
+      saveAs(selectedFile.url, selectedFile.name);
+    }
+  };
+
+  const getFileIcon = (fileType) => {
+    if (fileType.startsWith("image/")) {
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-5 w-5"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fillRule="evenodd"
+            d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
+            clipRule="evenodd"
+          />
+        </svg>
+      );
+    } else if (fileType.startsWith("video/")) {
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-5 w-5"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+        </svg>
+      );
+    } else if (fileType.includes("pdf")) {
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-5 w-5"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fillRule="evenodd"
+            d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"
+            clipRule="evenodd"
+          />
+          <path d="M8 7h4v2H8V7z" />
+        </svg>
+      );
+    } else if (fileType.includes("word") || fileType.includes("document")) {
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-5 w-5"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fillRule="evenodd"
+            d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"
+            clipRule="evenodd"
+          />
+          <path d="M8 11h4v1H8v-1zm0-3h8v1H8V8z" />
+        </svg>
+      );
+    } else if (fileType.includes("sheet") || fileType.includes("excel")) {
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-5 w-5"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fillRule="evenodd"
+            d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"
+            clipRule="evenodd"
+          />
+          <path d="M8 8h1v1H8V8zm2 0h1v1h-1V8zm2 0h1v1h-1V8z" />
+        </svg>
+      );
+    } else {
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-5 w-5"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fillRule="evenodd"
+            d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"
+            clipRule="evenodd"
+          />
+        </svg>
+      );
+    }
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
   if (loading) {
@@ -376,16 +569,50 @@ const DetailTicket = () => {
             placeholder="Add a comment..."
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
-            required
           ></textarea>
+
+          {/* File Upload Section */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Upload Files (Max 5 files)
+            </label>
+            <input
+              type="file"
+              multiple
+              onChange={handleFileChange}
+              className="block w-full text-sm text-gray-500
+                file:mr-4 file:py-2 file:px-4
+                file:rounded-md file:border-0
+                file:text-sm file:font-semibold
+                file:bg-blue-50 file:text-blue-700
+                hover:file:bg-blue-100"
+            />
+            {selectedFiles.length > 0 && (
+              <div className="mt-2">
+                <p className="text-sm text-gray-600">Selected files:</p>
+                <ul className="list-disc list-inside text-sm text-gray-600">
+                  {selectedFiles.map((file, index) => (
+                    <li key={index}>{file.name}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
           <button
             type="submit"
-            disabled={commentLoading || !newComment.trim()}
+            disabled={
+              commentLoading ||
+              uploadingFiles ||
+              (!newComment.trim() && selectedFiles.length === 0)
+            }
             className={`px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center ${
-              !newComment.trim() && "opacity-50 cursor-not-allowed"
+              !newComment.trim() &&
+              selectedFiles.length === 0 &&
+              "opacity-50 cursor-not-allowed"
             }`}
           >
-            {commentLoading ? (
+            {commentLoading || uploadingFiles ? (
               <>
                 <svg
                   className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
@@ -407,7 +634,7 @@ const DetailTicket = () => {
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   ></path>
                 </svg>
-                Sending...
+                {uploadingFiles ? "Uploading files..." : "Sending..."}
               </>
             ) : (
               "Submit Comment"
@@ -502,9 +729,62 @@ const DetailTicket = () => {
                         </button>
                       </div>
                     </div>
-                    <p className="text-gray-700 whitespace-pre-line">
+                    <p className="text-gray-700 whitespace-pre-line mb-2">
                       {comment.comment}
                     </p>
+
+                    {/* Attachments Section */}
+                    {commentAttachments[comment.comment_id] &&
+                      commentAttachments[comment.comment_id].length > 0 && (
+                        <div className="mt-3">
+                          <p className="text-sm text-gray-500 mb-2">
+                            Attachments:
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {commentAttachments[comment.comment_id].map(
+                              (attachment) => (
+                                <div
+                                  key={attachment.attachment_id}
+                                  onClick={() =>
+                                    handleOpenAttachment(
+                                      attachment.file_link,
+                                      attachment.file_name,
+                                      attachment.file_type
+                                    )
+                                  }
+                                  className="flex items-center p-2 bg-white rounded-md border border-gray-200 hover:border-blue-500 cursor-pointer transition-colors"
+                                >
+                                  <div className="mr-3 text-blue-500">
+                                    {getFileIcon(attachment.file_type)}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-gray-900 truncate">
+                                      {attachment.file_name}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      {formatFileSize(attachment.file_size)}
+                                    </p>
+                                  </div>
+                                  <div className="ml-2 text-gray-400">
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      className="h-5 w-5"
+                                      viewBox="0 0 20 20"
+                                      fill="currentColor"
+                                    >
+                                      <path
+                                        fillRule="evenodd"
+                                        d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z"
+                                        clipRule="evenodd"
+                                      />
+                                    </svg>
+                                  </div>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      )}
                   </>
                 )}
               </div>
