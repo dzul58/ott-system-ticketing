@@ -4,6 +4,7 @@ const app = express();
 const port = 3000;
 const TicketController = require("./controllers/ticketController");
 const LoginController = require("./controllers/loginController");
+const AuthorizationController = require("./controllers/authorizationController");
 const authentication = require("./middlewares/authentication");
 const { upload, handleMulterError } = require("./middlewares/multer");
 
@@ -21,6 +22,9 @@ app.get("/auto-login", LoginController.autoLogin);
 app.post("/login", LoginController.login);
 
 app.use(authentication);
+
+//update access
+app.get("/update-access", AuthorizationController.updateAccess);
 
 // Routes untuk Ticket
 app.get("/api/tickets", TicketController.getAllTickets);
