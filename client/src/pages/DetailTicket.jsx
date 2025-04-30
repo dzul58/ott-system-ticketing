@@ -18,10 +18,22 @@ const DetailTicket = () => {
   const [commentAttachments, setCommentAttachments] = useState({});
   const [selectedFile, setSelectedFile] = useState(null);
   const [showViewer, setShowViewer] = useState(false);
+  const [currentUserName, setCurrentUserName] = useState("");
   const navigate = useNavigate();
   const { id } = useParams();
 
   useEffect(() => {
+    // Ambil nama pengguna dari token
+    const token = localStorage.getItem("access_token");
+    if (token) {
+      try {
+        // Decode token untuk mendapatkan payload
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        setCurrentUserName(payload.name);
+      } catch (error) {
+        console.error("Error decoding token:", error);
+      }
+    }
     fetchTicket();
   }, [id]);
 
@@ -109,7 +121,7 @@ const DetailTicket = () => {
       setLoading(false);
     } catch (err) {
       console.error("Error fetching ticket:", err);
-      setError("Gagal memuat data tiket");
+      setError("Failed to load ticket data");
       setLoading(false);
     }
   };
@@ -120,7 +132,7 @@ const DetailTicket = () => {
       Swal.fire({
         icon: "error",
         title: "Error",
-        text: "Maksimal 5 file yang dapat diunggah",
+        text: "Maximum 5 files can be uploaded",
       });
       return;
     }
@@ -182,15 +194,38 @@ const DetailTicket = () => {
       console.error("Error posting comment:", err);
       Swal.fire({
         icon: "error",
-        title: "Gagal!",
-        text: "Komentar gagal ditambahkan",
+        title: "Failed!",
+        text: "Failed to add comment",
       });
       setCommentLoading(false);
       setUploadingFiles(false);
     }
   };
 
-  const handleEditComment = (comment) => {
+  const checkUserAuthorization = async () => {
+    try {
+      const response = await axios.get("http://localhost:3000/update-access", {
+        headers: {
+          Authorization: `Bearer ${localStorage.access_token}`,
+        },
+      });
+      return response.data.name;
+    } catch (error) {
+      console.error("Error checking authorization:", error);
+      return null;
+    }
+  };
+
+  const handleEditComment = async (comment) => {
+    const currentUserName = await checkUserAuthorization();
+    if (currentUserName !== comment.user_name) {
+      Swal.fire({
+        icon: "error",
+        title: "Access Denied",
+        text: "You do not have permission to edit this comment",
+      });
+      return;
+    }
     setEditingComment({
       id: comment.comment_id,
       text: comment.comment,
@@ -199,12 +234,22 @@ const DetailTicket = () => {
   };
 
   const handleSaveEditedComment = async () => {
+    const currentUserName = await checkUserAuthorization();
+    if (currentUserName !== editingComment.user_name) {
+      Swal.fire({
+        icon: "error",
+        title: "Access Denied",
+        text: "You do not have permission to edit this comment",
+      });
+      return;
+    }
+
     try {
       const response = await axios.put(
         `http://localhost:3000/api/comments/${editingComment.id}`,
         {
           comment: editingComment.text,
-          user_name: editingComment.user_name,
+          user_name: currentUserName,
         },
         {
           headers: {
@@ -220,23 +265,33 @@ const DetailTicket = () => {
       console.error("Error editing comment:", err);
       Swal.fire({
         icon: "error",
-        title: "Gagal!",
-        text: "Komentar gagal diupdate",
+        title: "Failed!",
+        text: "Failed to update comment",
       });
     }
   };
 
   const handleDeleteComment = async (commentId, userName) => {
+    const currentUserName = await checkUserAuthorization();
+    if (currentUserName !== userName) {
+      Swal.fire({
+        icon: "error",
+        title: "Access Denied",
+        text: "You do not have permission to delete this comment",
+      });
+      return;
+    }
+
     try {
       const result = await Swal.fire({
-        title: "Apakah Anda yakin?",
-        text: "Komentar yang dihapus tidak dapat dikembalikan!",
+        title: "Are you sure?",
+        text: "This comment cannot be recovered!",
         icon: "warning",
         showCancelButton: true,
         confirmButtonColor: "#3085d6",
         cancelButtonColor: "#d33",
-        confirmButtonText: "Ya, hapus!",
-        cancelButtonText: "Batal",
+        confirmButtonText: "Yes, delete it!",
+        cancelButtonText: "Cancel",
       });
 
       if (result.isConfirmed) {
@@ -245,20 +300,20 @@ const DetailTicket = () => {
             Authorization: `Bearer ${localStorage.access_token}`,
           },
           data: {
-            user_name: userName,
+            user_name: currentUserName,
           },
         });
 
         // Refresh komentar setelah menghapus
         fetchTicket();
-        Swal.fire("Terhapus!", "Komentar berhasil dihapus.", "success");
+        Swal.fire("Deleted!", "Comment has been deleted.", "success");
       }
     } catch (err) {
       console.error("Error deleting comment:", err);
       Swal.fire({
         icon: "error",
-        title: "Gagal!",
-        text: "Komentar gagal dihapus",
+        title: "Failed!",
+        text: "Failed to delete comment",
       });
     }
   };
@@ -418,7 +473,7 @@ const DetailTicket = () => {
   if (!ticket) {
     return (
       <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
-        Tiket tidak ditemukan
+        Ticket not found
       </div>
     );
   }

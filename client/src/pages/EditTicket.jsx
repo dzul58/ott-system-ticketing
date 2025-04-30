@@ -67,7 +67,7 @@ const EditTicket = () => {
       setIsLoading(false);
     } catch (error) {
       console.error("Error fetching ticket:", error);
-      setError("Gagal memuat data tiket");
+      setError("Failed to load ticket data");
       setIsLoading(false);
     }
   };
@@ -100,7 +100,7 @@ const EditTicket = () => {
       setFilteredExecutors(response.data.data);
     } catch (error) {
       console.error("Error fetching executors:", error);
-      setError("Gagal memuat daftar executor");
+      setError("Failed to load executor list");
     }
   };
 
@@ -155,7 +155,7 @@ const EditTicket = () => {
       const missingFields = requiredFields.filter((field) => !formData[field]);
 
       if (missingFields.length > 0) {
-        setError(`Field berikut wajib diisi: ${missingFields.join(", ")}`);
+        setError(`Field must be filled: ${missingFields.join(", ")}`);
         setLoading(false);
         return;
       }
@@ -170,7 +170,7 @@ const EditTicket = () => {
         }
       );
 
-      setSuccess("Tiket berhasil diupdate!");
+      setSuccess("Ticket updated successfully!");
       setLoading(false);
 
       // Langsung navigasi ke halaman home tanpa delay
@@ -178,7 +178,8 @@ const EditTicket = () => {
     } catch (error) {
       console.error("Error updating ticket:", error);
       setError(
-        error.response?.data?.message || "Terjadi kesalahan saat update tiket"
+        error.response?.data?.message ||
+          "An error occurred while updating ticket"
       );
       setLoading(false);
     }
@@ -243,9 +244,10 @@ const EditTicket = () => {
                   onChange={handleInputChange}
                   required
                 >
-                  <option value="">Pilih Kategori</option>
-                  <option value="OTT">OTT</option>
-                  <option value="System">System</option>
+                  <option value="">Select Category</option>
+                  <option value="Tshoot">Tshoot</option>
+                  <option value="Support">Support</option>
+                  <option value="Configure">Configure</option>
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
                   <svg
@@ -271,10 +273,11 @@ const EditTicket = () => {
                   onChange={handleInputChange}
                   required
                 >
-                  <option value="">Pilih Tipe</option>
-                  <option value="Issue">Issue</option>
-                  <option value="Maintenance">Maintenance</option>
-                  <option value="Request">Request</option>
+                  <option value="">Select Type</option>
+                  <option value="OTT">OTT</option>
+                  <option value="ZTE">ZTE</option>
+                  <option value="SDMC">SDMC</option>
+                  <option value="System">System</option>
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
                   <svg
@@ -296,7 +299,7 @@ const EditTicket = () => {
                 <input
                   type="text"
                   name="user_name_executor"
-                  placeholder="Ketik nama executor"
+                  placeholder="Type executor name"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   value={formData.user_name_executor}
                   onChange={handleInputChange}
@@ -385,7 +388,7 @@ const EditTicket = () => {
               <textarea
                 name="detail_activity"
                 rows="5"
-                placeholder="Masukkan detail aktivitas"
+                placeholder="Enter detail activity"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 value={formData.detail_activity}
                 onChange={handleInputChange}

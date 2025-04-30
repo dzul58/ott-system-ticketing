@@ -5,6 +5,7 @@ import Home from "../pages/Home";
 import CreateTicket from "../pages/CreateTicket";
 import EditTicket from "../pages/EditTicket";
 import DetailTicket from "../pages/DetailTicket";
+import AutoLogin from "../pages/AutoLogin";
 const aunthBeforeLogin = () => {
   const access_token = localStorage.access_token;
   if (!access_token) {
@@ -22,11 +23,10 @@ const aunthAfterLogin = () => {
 };
 
 const router = createBrowserRouter([
-  // {
-  //   path: "/auto-login",
-  //   element: <AutoLogin />,
-  //   errorElement: <ErrorPage />,
-  // },
+  {
+    path: "/auto-login",
+    element: <AutoLogin />,
+  },
   {
     path: "/login",
     element: <Login />,

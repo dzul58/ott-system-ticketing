@@ -17,6 +17,7 @@ const Home = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalTickets, setTotalTickets] = useState(0);
+  const [error, setError] = useState(null);
 
   const navigate = useNavigate();
 
@@ -54,6 +55,12 @@ const Home = () => {
     } catch (error) {
       console.error("Error fetching tickets:", error);
       setLoading(false);
+      setError("Failed to load ticket data");
+      Swal.fire({
+        icon: "error",
+        title: "Failed",
+        text: "Failed to load ticket data",
+      });
     }
   };
 
@@ -118,34 +125,66 @@ const Home = () => {
     navigate(`/edit-ticket/${id}`);
   };
 
-  const handleDeleteTicket = async (id) => {
+  const checkUserAuthorization = async () => {
     try {
+      const response = await axios.get("http://localhost:3000/update-access", {
+        headers: {
+          Authorization: `Bearer ${localStorage.access_token}`,
+        },
+      });
+      return response.data.name;
+    } catch (error) {
+      console.error("Error checking authorization:", error);
+      return null;
+    }
+  };
+
+  const handleDeleteTicket = async (id, createdBy) => {
+    const currentUserName = await checkUserAuthorization();
+    if (currentUserName !== createdBy) {
       Swal.fire({
+        icon: "error",
+        title: "Access Denied",
+        text: "You do not have permission to delete this ticket",
+      });
+      return;
+    }
+
+    try {
+      const result = await Swal.fire({
         title: "Are you sure?",
-        text: "You won't be able to revert this!",
+        text: "This ticket cannot be recovered!",
         icon: "warning",
         showCancelButton: true,
         confirmButtonColor: "#3085d6",
         cancelButtonColor: "#d33",
         confirmButtonText: "Yes, delete it!",
         cancelButtonText: "Cancel",
-      }).then(async (result) => {
-        if (result.isConfirmed) {
-          await axios.delete(`http://localhost:3000/api/tickets/${id}`, {
-            headers: {
-              Authorization: `Bearer ${localStorage.access_token}`,
-            },
-          });
-
-          // Refresh data setelah penghapusan
-          fetchTickets();
-
-          Swal.fire("Deleted!", "Your ticket has been deleted.", "success");
-        }
       });
+
+      if (result.isConfirmed) {
+        await axios.delete(`http://localhost:3000/api/tickets/${id}`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.access_token}`,
+          },
+        });
+
+        // Refresh data setelah penghapusan
+        fetchTickets();
+
+        Swal.fire({
+          icon: "success",
+          title: "Success",
+          text: "Ticket successfully deleted",
+        });
+      }
     } catch (error) {
       console.error("Error deleting ticket:", error);
-      Swal.fire("Failed!", "There was an error deleting the ticket.", "error");
+      Swal.fire({
+        icon: "error",
+        title: "Failed",
+        text: "Failed to delete ticket",
+      });
     }
   };
 
@@ -431,9 +470,14 @@ const Home = () => {
 
                       {/* Delete Icon */}
                       <button
-                        onClick={() => handleDeleteTicket(ticket.ticket_id)}
+                        onClick={() =>
+                          handleDeleteTicket(
+                            ticket.ticket_id,
+                            ticket.created_by_name
+                          )
+                        }
                         className="text-red-600 hover:text-red-900"
-                        title="Hapus Tiket"
+                        title="Delete Ticket"
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"

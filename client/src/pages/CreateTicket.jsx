@@ -67,7 +67,7 @@ const CreateTicket = () => {
       setExecutors(response.data.data);
     } catch (error) {
       console.error("Error fetching executors:", error);
-      setError("Gagal memuat daftar executor");
+      setError("Failed to load ticket data");
     }
   };
 
@@ -205,8 +205,9 @@ const CreateTicket = () => {
                   required
                 >
                   <option value="">Select Category</option>
-                  <option value="OTT">OTT</option>
-                  <option value="System">System</option>
+                  <option value="Tshoot">Tshoot</option>
+                  <option value="Support">Support</option>
+                  <option value="Configure">Configure</option>
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
                   <svg
@@ -233,9 +234,10 @@ const CreateTicket = () => {
                   required
                 >
                   <option value="">Select Type</option>
-                  <option value="Issue">Issue</option>
-                  <option value="Maintenance">Maintenance</option>
-                  <option value="Request">Request</option>
+                  <option value="OTT">OTT</option>
+                  <option value="ZTE">ZTE</option>
+                  <option value="SDMC">SDMC</option>
+                  <option value="System">System</option>
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
                   <svg
