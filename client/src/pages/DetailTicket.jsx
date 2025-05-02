@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import Swal from "sweetalert2";
-import FileViewer from "react-file-viewer";
 import { saveAs } from "file-saver";
 
 const DetailTicket = () => {
