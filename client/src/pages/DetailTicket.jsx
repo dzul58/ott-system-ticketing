@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import Swal from "sweetalert2";
-import { saveAs } from "file-saver";
 
 const DetailTicket = () => {
   const [ticket, setTicket] = useState(null);
@@ -344,12 +343,6 @@ const DetailTicket = () => {
   const handleCloseViewer = () => {
     setShowViewer(false);
     setSelectedFile(null);
-  };
-
-  const handleDownload = () => {
-    if (selectedFile) {
-      saveAs(selectedFile.url, selectedFile.name);
-    }
   };
 
   const getFileIcon = (fileType) => {
