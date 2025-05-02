@@ -47,7 +47,7 @@ const EditTicket = () => {
     try {
       setIsLoading(true);
       const response = await axios.get(
-        `http://localhost:3000/api/tickets/${id}/edit`,
+        `http://ott-system-activity-be.gslb.oss.myrepublic.co.id/api/tickets/${id}/edit`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.access_token}`,
@@ -89,7 +89,7 @@ const EditTicket = () => {
   const fetchExecutors = async () => {
     try {
       const response = await axios.get(
-        "http://localhost:3000/api/users/noc-ott",
+        "http://ott-system-activity-be.gslb.oss.myrepublic.co.id/api/users/noc-ott",
         {
           headers: {
             Authorization: `Bearer ${localStorage.access_token}`,
@@ -161,7 +161,7 @@ const EditTicket = () => {
       }
 
       const response = await axios.put(
-        `http://localhost:3000/api/tickets/${id}`,
+        `http://ott-system-activity-be.gslb.oss.myrepublic.co.id/api/tickets/${id}`,
         formData,
         {
           headers: {

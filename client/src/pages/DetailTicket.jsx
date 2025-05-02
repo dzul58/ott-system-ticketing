@@ -108,7 +108,7 @@ const DetailTicket = () => {
     try {
       setLoading(true);
       const response = await axios.get(
-        `http://localhost:3000/api/tickets/${id}`,
+        `http://ott-system-activity-be.gslb.oss.myrepublic.co.id/api/tickets/${id}`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.access_token}`,
@@ -148,7 +148,7 @@ const DetailTicket = () => {
 
       // Upload komentar terlebih dahulu
       const commentResponse = await axios.post(
-        "http://localhost:3000/api/comments",
+        "http://ott-system-activity-be.gslb.oss.myrepublic.co.id/api/comments",
         {
           ticket_id: id,
           comment: newComment,
@@ -170,7 +170,7 @@ const DetailTicket = () => {
           formData.append("file", file);
 
           await axios.post(
-            `http://localhost:3000/api/comments/${commentId}/attachments`,
+            `http://ott-system-activity-be.gslb.oss.myrepublic.co.id/api/comments/${commentId}/attachments`,
             formData,
             {
               headers: {
@@ -204,7 +204,7 @@ const DetailTicket = () => {
 
   const checkUserAuthorization = async () => {
     try {
-      const response = await axios.get("http://localhost:3000/update-access", {
+      const response = await axios.get("http://ott-system-activity-be.gslb.oss.myrepublic.co.id/update-access", {
         headers: {
           Authorization: `Bearer ${localStorage.access_token}`,
         },
@@ -246,7 +246,7 @@ const DetailTicket = () => {
 
     try {
       const response = await axios.put(
-        `http://localhost:3000/api/comments/${editingComment.id}`,
+        `http://ott-system-activity-be.gslb.oss.myrepublic.co.id/api/comments/${editingComment.id}`,
         {
           comment: editingComment.text,
           user_name: currentUserName,
@@ -295,7 +295,7 @@ const DetailTicket = () => {
       });
 
       if (result.isConfirmed) {
-        await axios.delete(`http://localhost:3000/api/comments/${commentId}`, {
+        await axios.delete(`http://ott-system-activity-be.gslb.oss.myrepublic.co.id/api/comments/${commentId}`, {
           headers: {
             Authorization: `Bearer ${localStorage.access_token}`,
           },
@@ -321,7 +321,7 @@ const DetailTicket = () => {
   const fetchCommentAttachments = async (commentId) => {
     try {
       const response = await axios.get(
-        `http://localhost:3000/api/comments/${commentId}/attachments`,
+        `http://ott-system-activity-be.gslb.oss.myrepublic.co.id/api/comments/${commentId}/attachments`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.access_token}`,
