@@ -1,7 +1,7 @@
 module.exports = {
     apps: [
       {
-        name: "frontend-ott",
+        name: "ott-system-ticketing-fe",
         script: "npx",
         args: "serve -s dist -l 5173",
         env: {
