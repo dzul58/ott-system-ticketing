@@ -10,7 +10,7 @@ const { upload, handleMulterError } = require("./middlewares/multer");
 
 app.use(
   cors({
-    origin: ["http://172.17.42.146:5173", "http://localhost:5173", "http://ott-system-activity-be.gslb.oss.myrepublic.co.id"],
+    origin: ["http://172.17.42.146:5173", "http://localhost:5173", "https://ott-system-activity-be.gslb.oss.myrepublic.co.id"],
     credentials: true,
   })
 );
