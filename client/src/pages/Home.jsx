@@ -41,7 +41,7 @@ const Home = () => {
       );
 
       const response = await axios.get(
-        `http://ott-system-activity-be.gslb.oss.myrepublic.co.id/api/tickets?${queryParams.toString()}`,
+        `https://ott-system-activity-be.gslb.oss.myrepublic.co.id/api/tickets?${queryParams.toString()}`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.access_token}`,
@@ -127,7 +127,7 @@ const Home = () => {
 
   const checkUserAuthorization = async () => {
     try {
-      const response = await axios.get("http://ott-system-activity-be.gslb.oss.myrepublic.co.id/update-access", {
+      const response = await axios.get("https://ott-system-activity-be.gslb.oss.myrepublic.co.id/update-access", {
         headers: {
           Authorization: `Bearer ${localStorage.access_token}`,
         },
@@ -163,7 +163,7 @@ const Home = () => {
       });
 
       if (result.isConfirmed) {
-        await axios.delete(`http://ott-system-activity-be.gslb.oss.myrepublic.co.id/api/tickets/${id}`, {
+        await axios.delete(`https://ott-system-activity-be.gslb.oss.myrepublic.co.id/api/tickets/${id}`, {
           headers: {
             Authorization: `Bearer ${localStorage.access_token}`,
           },

@@ -57,7 +57,7 @@ const CreateTicket = () => {
   const fetchExecutors = async () => {
     try {
       const response = await axios.get(
-        "http://ott-system-activity-be.gslb.oss.myrepublic.co.id/api/users/noc-ott",
+        "https://ott-system-activity-be.gslb.oss.myrepublic.co.id/api/users/noc-ott",
         {
           headers: {
             Authorization: `Bearer ${localStorage.access_token}`,
@@ -128,7 +128,7 @@ const CreateTicket = () => {
       }
 
       const response = await axios.post(
-        "http://ott-system-activity-be.gslb.oss.myrepublic.co.id/api/tickets",
+        "https://ott-system-activity-be.gslb.oss.myrepublic.co.id/api/tickets",
         formData,
         {
           headers: {

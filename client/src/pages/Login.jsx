@@ -23,7 +23,7 @@ const Login = () => {
     try {
       setLoading(true);
       const dataLogin = { username, password };
-      let { data } = await axios.post(`http://ott-system-activity-be.gslb.oss.myrepublic.co.id/login`, dataLogin);
+      let { data } = await axios.post(`https://ott-system-activity-be.gslb.oss.myrepublic.co.id/login`, dataLogin);
       localStorage.setItem("access_token", data.access_token);
 
       Swal.fire({

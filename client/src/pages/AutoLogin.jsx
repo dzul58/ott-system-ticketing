@@ -23,7 +23,7 @@ const AutoLogin = () => {
   const handleAutoLogin = async (username, password) => {
     try {
       const { data } = await axios.get(
-        `http://ott-system-activity-be.gslb.oss.myrepublic.co.id/auto-login?username=${encodeURIComponent(
+        `https://ott-system-activity-be.gslb.oss.myrepublic.co.id/auto-login?username=${encodeURIComponent(
           username
         )}&password=${encodeURIComponent(password)}`
       );
