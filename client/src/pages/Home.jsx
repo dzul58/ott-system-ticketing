@@ -31,7 +31,7 @@ const Home = () => {
       // Membuat query parameters
       const queryParams = new URLSearchParams({
         page: currentPage,
-        limit: 6,
+        limit: 10,
         ...params,
       });
 
@@ -127,11 +127,14 @@ const Home = () => {
 
   const checkUserAuthorization = async () => {
     try {
-      const response = await axios.get("https://ott-system-activity-be.gslb.oss.myrepublic.co.id/update-access", {
-        headers: {
-          Authorization: `Bearer ${localStorage.access_token}`,
-        },
-      });
+      const response = await axios.get(
+        "https://ott-system-activity-be.gslb.oss.myrepublic.co.id/update-access",
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.access_token}`,
+          },
+        }
+      );
       return response.data.name;
     } catch (error) {
       console.error("Error checking authorization:", error);
@@ -163,11 +166,14 @@ const Home = () => {
       });
 
       if (result.isConfirmed) {
-        await axios.delete(`https://ott-system-activity-be.gslb.oss.myrepublic.co.id/api/tickets/${id}`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.access_token}`,
-          },
-        });
+        await axios.delete(
+          `https://ott-system-activity-be.gslb.oss.myrepublic.co.id/api/tickets/${id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.access_token}`,
+            },
+          }
+        );
 
         // Refresh data setelah penghapusan
         fetchTickets();
