@@ -80,7 +80,14 @@ class TicketController {
       const query = `
         SELECT * FROM ott_system_tickets_activity 
         ${whereClause} 
-        ORDER BY ticket_id DESC 
+        ORDER BY 
+          CASE 
+            WHEN status = 'Open' THEN 1
+            WHEN status = 'On Progress' THEN 2
+            WHEN status = 'Closed' THEN 3
+            ELSE 4
+          END,
+          created_at DESC, ticket_id DESC
         LIMIT $${paramCount++} OFFSET $${paramCount}
       `;
 
