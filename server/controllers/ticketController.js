@@ -87,7 +87,7 @@ class TicketController {
             WHEN status = 'Closed' THEN 3
             ELSE 4
           END,
-          created_at DESC, ticket_id DESC
+          ticket_id DESC
         LIMIT $${paramCount++} OFFSET $${paramCount}
       `;
 
