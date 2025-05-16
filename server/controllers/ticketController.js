@@ -1,6 +1,7 @@
 const poolNisa = require("../config/config");
 const { upload, handleMulterError } = require("../middlewares/multer");
 const UploadController = require("./uploadController");
+const XLSX = require("xlsx");
 
 class TicketController {
   // Get all tickets with search and pagination
@@ -241,16 +242,58 @@ class TicketController {
         finalEndDate = timeResult.rows[0].current_time;
       }
 
+      // Get current date in Jakarta timezone for ticket_id
+      const dateQuery =
+        "SELECT NOW() AT TIME ZONE 'Asia/Jakarta' as current_date";
+      const dateResult = await poolNisa.query(dateQuery);
+      const currentDate = new Date(dateResult.rows[0].current_date);
+
+      // Format date components for ticket_id
+      const year = currentDate.getFullYear();
+      const month = String(currentDate.getMonth() + 1).padStart(2, "0");
+      const day = String(currentDate.getDate()).padStart(2, "0");
+      const dateString = `${year}${month}${day}`;
+
+      // Get the last ticket number for today
+      const lastTicketQuery = `
+        SELECT ticket_id 
+        FROM ott_system_tickets_activity 
+        WHERE ticket_id LIKE $1 
+        ORDER BY ticket_id DESC 
+        LIMIT 1
+      `;
+      const lastTicketResult = await poolNisa.query(lastTicketQuery, [
+        `TA${dateString}%`,
+      ]);
+
+      // Generate new ticket number (2 digits)
+      let sequenceNumber = "01";
+      if (lastTicketResult.rows.length > 0) {
+        const lastSequence = parseInt(
+          lastTicketResult.rows[0].ticket_id.slice(-2)
+        );
+        if (lastSequence >= 99) {
+          throw new Error(
+            "Maksimum nomor urut tiket untuk hari ini telah tercapai"
+          );
+        }
+        sequenceNumber = String(lastSequence + 1).padStart(2, "0");
+      }
+
+      // Create final ticket_id
+      const ticket_id = `TA${dateString}${sequenceNumber}`;
+
       const query = `
         INSERT INTO ott_system_tickets_activity 
-        (created_by_name, created_by_email, category, user_name_executor, user_email, activity, detail_activity, type, status, end_date) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
+        (ticket_id, created_by_name, created_by_email, category, user_name_executor, user_email, activity, detail_activity, type, status, end_date) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) 
         RETURNING *
       `;
 
       const values = [
-        name, // created_by_name
-        email, // created_by_email
+        ticket_id,
+        name,
+        email,
         category,
         user_name_executor,
         user_email,
@@ -272,7 +315,7 @@ class TicketController {
       console.error("Error creating ticket:", error);
       return res.status(500).json({
         status: "error",
-        message: "Terjadi kesalahan saat membuat tiket baru",
+        message: error.message || "Terjadi kesalahan saat membuat tiket baru",
       });
     }
   }
@@ -842,6 +885,201 @@ WHERE
       res.status(500).json({
         status: "error",
         message: "Gagal mendapatkan attachment komentar",
+      });
+    }
+  }
+
+  // Download tickets
+  static async downloadTickets(req, res) {
+    try {
+      const {
+        category,
+        user_name_executor,
+        activity,
+        type,
+        status,
+        created_by_name,
+      } = req.query;
+
+      // Build where clause for search
+      let whereClause = "";
+      const params = [];
+      let paramCount = 1;
+
+      if (
+        category ||
+        user_name_executor ||
+        activity ||
+        type ||
+        status ||
+        created_by_name
+      ) {
+        whereClause = "WHERE ";
+
+        if (category) {
+          whereClause += `category ILIKE $${paramCount++} `;
+          params.push(`%${category}%`);
+        }
+
+        if (user_name_executor) {
+          if (params.length > 0) whereClause += "AND ";
+          whereClause += `user_name_executor ILIKE $${paramCount++} `;
+          params.push(`%${user_name_executor}%`);
+        }
+
+        if (activity) {
+          if (params.length > 0) whereClause += "AND ";
+          whereClause += `activity ILIKE $${paramCount++} `;
+          params.push(`%${activity}%`);
+        }
+
+        if (type) {
+          if (params.length > 0) whereClause += "AND ";
+          whereClause += `type ILIKE $${paramCount++} `;
+          params.push(`%${type}%`);
+        }
+
+        if (status) {
+          if (params.length > 0) whereClause += "AND ";
+          whereClause += `status ILIKE $${paramCount++} `;
+          params.push(`%${status}%`);
+        }
+
+        if (created_by_name) {
+          if (params.length > 0) whereClause += "AND ";
+          whereClause += `created_by_name ILIKE $${paramCount++} `;
+          params.push(`%${created_by_name}%`);
+        }
+      }
+
+      // Query untuk mendapatkan semua tiket sesuai filter
+      const query = `
+        SELECT 
+          ticket_id,
+          created_by_name,
+          created_by_email,
+          category,
+          user_name_executor,
+          user_email,
+          activity,
+          detail_activity,
+          type,
+          status,
+          start_date AT TIME ZONE 'Asia/Jakarta' as start_date,
+          end_date AT TIME ZONE 'Asia/Jakarta' as end_date
+        FROM ott_system_tickets_activity 
+        ${whereClause} 
+        ORDER BY ticket_id DESC
+      `;
+
+      const result = await poolNisa.query(query, params);
+
+      // Format data untuk Excel
+      const formattedData = result.rows.map((ticket) => ({
+        "Ticket ID": ticket.ticket_id,
+        "Created By": ticket.created_by_name,
+        Category: ticket.category,
+        Executor: ticket.user_name_executor,
+        Activity: ticket.activity,
+        "Detail Activity": ticket.detail_activity,
+        Type: ticket.type,
+        Status: ticket.status,
+        "Start Date": ticket.start_date
+          ? new Date(ticket.start_date).toLocaleString("id-ID", {
+              timeZone: "Asia/Jakarta",
+            })
+          : "-",
+        "End Date": ticket.end_date
+          ? new Date(ticket.end_date).toLocaleString("id-ID", {
+              timeZone: "Asia/Jakarta",
+            })
+          : "-",
+      }));
+
+      // Buat workbook baru
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(formattedData, {
+        origin: "A1",
+      });
+
+      // Dapatkan range sel yang digunakan
+      const range = XLSX.utils.decode_range(ws["!ref"]);
+
+      // Buat style untuk border
+      const borderStyle = {
+        style: "thin",
+        color: { auto: 1 },
+      };
+
+      // Terapkan border ke setiap sel
+      for (let R = range.s.r; R <= range.e.r; ++R) {
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          const cell = XLSX.utils.encode_cell({ r: R, c: C });
+          if (!ws[cell]) ws[cell] = { v: "", t: "s" };
+          if (!ws[cell].s) ws[cell].s = {};
+          ws[cell].s.border = {
+            top: borderStyle,
+            left: borderStyle,
+            bottom: borderStyle,
+            right: borderStyle,
+          };
+        }
+      }
+
+      // Style untuk header
+      const headerStyle = {
+        font: { bold: true },
+        fill: { fgColor: { rgb: "CCCCCC" } },
+        alignment: { horizontal: "center" },
+      };
+
+      // Terapkan style header
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const headerCell = XLSX.utils.encode_cell({ r: 0, c: C });
+        ws[headerCell].s = headerStyle;
+      }
+
+      // Atur lebar kolom
+      const colWidths = [
+        { wch: 15 }, // Ticket ID
+        { wch: 20 }, // Created By
+        { wch: 15 }, // Category
+        { wch: 20 }, // Executor
+        { wch: 50 }, // Activity
+        { wch: 80 }, // Detail Activity
+        { wch: 15 }, // Type
+        { wch: 15 }, // Status
+        { wch: 20 }, // Start Date
+        { wch: 20 }, // End Date
+      ];
+      ws["!cols"] = colWidths;
+
+      // Tambahkan worksheet ke workbook
+      XLSX.utils.book_append_sheet(wb, ws, "OTT System Report");
+
+      // Generate buffer
+      const buffer = XLSX.write(wb, {
+        type: "buffer",
+        bookType: "xlsx",
+      });
+
+      // Set header response
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+      res.setHeader(
+        "Content-Disposition",
+        'attachment; filename="OTT System Report.xlsx"'
+      );
+
+      // Kirim file
+      res.send(buffer);
+    } catch (error) {
+      console.error("Error downloading tickets:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Terjadi kesalahan saat mengunduh data tiket",
       });
     }
   }

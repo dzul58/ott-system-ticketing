@@ -207,6 +207,57 @@ const Home = () => {
     return date.toLocaleDateString("id-ID", options) + " WIB";
   };
 
+  const handleDownload = async () => {
+    try {
+      // Membuat query parameters dari state pencarian
+      const queryParams = new URLSearchParams();
+      Object.entries(searchParams).forEach(([key, value]) => {
+        if (value) queryParams.append(key, value);
+      });
+
+      const response = await axios.get(
+        `https://ott-system-activity-be.gslb.oss.myrepublic.co.id/api/tickets/download?${queryParams.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.access_token}`,
+          },
+          responseType: "blob",
+        }
+      );
+
+      // Buat URL untuk file yang didownload
+      const url = window.URL.createObjectURL(
+        new Blob([response.data], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        })
+      );
+
+      // Buat dan klik link download
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "OTT System Report.xlsx");
+      document.body.appendChild(link);
+      link.click();
+
+      // Cleanup
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      Swal.fire({
+        icon: "success",
+        title: "Berhasil",
+        text: "File berhasil diunduh!",
+      });
+    } catch (error) {
+      console.error("Error downloading file:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Gagal",
+        text: "Gagal mengunduh file",
+      });
+    }
+  };
+
   return (
     <>
       {/* Search Filters */}
@@ -296,24 +347,45 @@ const Home = () => {
         </div>
 
         <div className="flex justify-between">
-          <button
-            onClick={() => navigate("/create-ticket")}
-            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 mr-1"
-              viewBox="0 0 20 20"
-              fill="currentColor"
+          <div className="flex gap-2">
+            <button
+              onClick={() => navigate("/create-ticket")}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center"
             >
-              <path
-                fillRule="evenodd"
-                d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
-                clipRule="evenodd"
-              />
-            </svg>
-            Create New Ticket
-          </button>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 mr-1"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              Create New Ticket
+            </button>
+
+            <button
+              onClick={handleDownload}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 mr-1"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              Download Excel
+            </button>
+          </div>
 
           <div className="flex gap-3">
             <button
@@ -338,7 +410,7 @@ const Home = () => {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                No.
+                Ticket
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Created By
@@ -380,11 +452,11 @@ const Home = () => {
                 </td>
               </tr>
             ) : (
-              tickets.map((ticket, index) => (
+              tickets.map((ticket) => (
                 <tr key={ticket.ticket_id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">
-                      {(currentPage - 1) * 5 + index + 1}
+                      {ticket.ticket_id}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

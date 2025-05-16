@@ -10,7 +10,11 @@ const { upload, handleMulterError } = require("./middlewares/multer");
 
 app.use(
   cors({
-    origin: ["http://172.17.42.146:5173", "http://localhost:5173", "https://ott-system-activity.gslb.oss.myrepublic.co.id"],
+    origin: [
+      "http://172.17.42.146:5173",
+      "http://localhost:5173",
+      "https://ott-system-activity.gslb.oss.myrepublic.co.id",
+    ],
     credentials: true,
   })
 );
@@ -28,6 +32,7 @@ app.get("/update-access", AuthorizationController.updateAccess);
 
 // Routes untuk Ticket
 app.get("/api/tickets", TicketController.getAllTickets);
+app.get("/api/tickets/download", TicketController.downloadTickets);
 app.get("/api/tickets/:id", TicketController.getTicketByIdWithComments);
 app.get("/api/tickets/:id/edit", TicketController.getTicketById);
 app.post("/api/tickets", TicketController.createTicket);
